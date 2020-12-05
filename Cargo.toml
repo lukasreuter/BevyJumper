@@ -1,0 +1,23 @@
+cargo-features = ["strip"]
+
+[package]
+name = "bevy_jumper"
+version = "0.1.0"
+authors = ["Lukas Reuter <lukasreuter@outlook.com>"]
+edition = "2018"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[profile.release]
+# some optimizations for binary size
+lto = true
+panic = 'abort'
+opt-level = 'z'  # Optimize for size.
+codegen-units = 1
+strip = 'symbols'
+
+[dependencies]
+# bevy = { git = "https://github.com/bevyengine/bevy" }
+bevy = "0.3.0"
+# TODO: Replace the * by the latest version numbers.
+# Enable the `simd-stable` and `parallel` features of Rapier.
+bevy_rapier2d = { version = "*", features = [ "simd-stable", "parallel" ] }
