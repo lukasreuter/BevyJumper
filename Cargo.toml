@@ -17,7 +17,19 @@ strip = 'symbols'
 
 [dependencies]
 # bevy = { git = "https://github.com/bevyengine/bevy" }
-bevy = "0.3.0"
+bevy = { version = "0.3.0", default-features = false, features = [
+	# "bevy_audio",
+    "bevy_dynamic_plugin",
+    # "bevy_gilrs",
+    # "bevy_gltf",
+    "bevy_wgpu",
+    "bevy_winit",
+    "render",
+    # "png",
+    # "hdr",
+    # "mp3",
+    # "x11",
+	]}
 # TODO: Replace the * by the latest version numbers.
 # Enable the `simd-stable` and `parallel` features of Rapier.
-bevy_rapier2d = { version = "*", features = [ "simd-stable", "parallel" ] }
+bevy_rapier2d = { version = "0.6.2" }#, features = [ "simd-stable", "parallel" ] */}
