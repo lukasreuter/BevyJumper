@@ -4,13 +4,13 @@ use crate::components::{
 use bevy::app::App;
 use bevy::asset::Assets;
 use bevy::core::Time;
-use bevy::ecs::{Commands, Entity, IntoQuerySystem, Query, Res, ResMut, Without};
-use bevy::input::{keyboard::KeyCode, Input};
+use bevy::ecs::{Commands, Entity, Query, Res, ResMut, Without};
+use bevy::input::{keyboard::KeyCode, Input, system::exit_on_esc_system};
 use bevy::math::Vec2;
 use bevy::render::{
-    color::Color, entity::Camera2dComponents, pass::ClearColor, render_graph::base::Msaa,
+    color::Color, entity::Camera2dBundle, pass::ClearColor, render_graph::base::Msaa,
 };
-use bevy::sprite::{entity::SpriteComponents, ColorMaterial, Sprite};
+use bevy::sprite::{entity::SpriteBundle, ColorMaterial, Sprite};
 use bevy::window::WindowDescriptor;
 use bevy::DefaultPlugins;
 use bevy_rapier2d::physics::{
@@ -26,14 +26,14 @@ use bevy_rapier2d::render::RapierRenderPlugin;
 mod components;
 
 fn update_dash_cooldown(
-    mut commands: Commands,
+    commands: &mut Commands,
     time: Res<Time>,
     mut query: Query<(Entity, &mut DashCooldown)>,
 ) {
     for (entity, mut cooldown) in query.iter_mut() {
-        cooldown.0.tick(time.delta_seconds);
+        cooldown.0.tick(time.delta_seconds());
 
-        if cooldown.0.just_finished {
+        if cooldown.0.just_finished() {
             commands.remove_one::<DashCooldown>(entity);
         }
     }
@@ -66,11 +66,9 @@ fn keyboard_input(keyboard: Res<Input<KeyCode>>, mut inputs: Query<&mut Gameplay
 }
 
 fn player_movement(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut rigid_bodies: ResMut<RigidBodySet>,
     mut player_info: Query<
-        Without<
-            Airborne,
             (
                 Entity,
                 &Movement,
@@ -78,7 +76,7 @@ fn player_movement(
                 &GameplayInputs,
                 &RigidBodyHandleComponent,
             ),
-        >,
+            Without<Airborne>,
     >,
 ) {
     for (entity, movement, mut direction, gameplay_inputs, rigid_body_component) in
@@ -160,7 +158,7 @@ fn player_air_movement(
 }
 
 fn grounding(
-    mut commands: Commands,
+    commands: &mut Commands,
     events: Res<EventQueue>,
     players: Query<(Entity, &Airborne, &RigidBodyHandleComponent)>,
 ) {
@@ -213,12 +211,12 @@ fn get_air_max_speed(
 }
 
 fn startup_system(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut conf: ResMut<RapierConfiguration>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // increased the scale for faster descent
-    let scale = 20.0;
+    let scale = 15.0;
 
     conf.scale = scale;
 
@@ -234,11 +232,11 @@ fn startup_system(
     // Spawn entity with `Player` struct as a component for access in movement query.
     commands
         // camera
-        .spawn(Camera2dComponents::default())
+        .spawn(Camera2dBundle::default())
         // ground
         .spawn((rigid_body, collider))
         // player
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: materials.add(Color::rgb(0.45, 0.46, 1.0).into()),
             sprite: Sprite::new(Vec2::new(player_size_x, player_size_y)),
             ..Default::default()
@@ -278,8 +276,8 @@ fn main() {
     App::build()
         .add_resource(WindowDescriptor {
             title: "Bevy Jumper".to_string(),
-            width: 1000,
-            height: 1000,
+            width: 1000.0,
+            height: 1000.0,
             ..Default::default()
         })
         .add_resource(ClearColor(Color::rgb(0.19, 0.30, 0.47)))
@@ -287,13 +285,14 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin)
         .add_plugin(RapierRenderPlugin)
-        .add_startup_system(startup_system.system())
-        .add_startup_system(enable_physics_profiling.system())
-        .add_system(update_dash_cooldown.system())
-        .add_system(keyboard_input.system())
-        .add_system(player_movement.system())
-        .add_system(player_air_movement.system())
-        .add_system(grounding.system())
-        .add_system(apex_detection.system())
+        .add_startup_system(startup_system)
+        .add_startup_system(enable_physics_profiling)
+        .add_system(exit_on_esc_system)
+        .add_system(update_dash_cooldown)
+        .add_system(keyboard_input)
+        .add_system(player_movement)
+        .add_system(player_air_movement)
+        .add_system(grounding)
+        .add_system(apex_detection)
         .run();
 }
