@@ -1,0 +1,38 @@
+[package]
+name = "bevy_rapier2d"
+version = "0.6.2"
+authors = ["Sébastien Crozet <developer@crozet.re>"]
+description = "2-dimensional physics engine in Rust, official Bevy plugin."
+documentation = "http://docs.rs/bevy_rapier2d"
+homepage = "http://rapier.rs"
+repository = "https://github.com/dimforge/bevy_rapier"
+readme = "README.md"
+keywords = [ "physics", "dynamics", "rigid", "real-time", "joints" ]
+license = "Apache-2.0"
+edition = "2018"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+path = "../src/lib.rs"
+required-features = [ "dim2" ]
+
+[features]
+default = [ "dim2" ]
+dim2 = []
+parallel = [ "rapier2d/parallel" ]
+simd-stable = [ "rapier2d/simd-stable" ]
+simd-nightly = [ "rapier2d/simd-nightly" ]
+wasm-bindgen = [ "rapier2d/wasm-bindgen" ]
+serde-serialize = [ "rapier2d/serde-serialize" ]
+enhanced-determinism = [ "rapier2d/enhanced-determinism" ]
+
+[dependencies]
+bevy = { git = "https://github.com/bevyengine/bevy.git", default-features = false, features = ["render"] }
+nalgebra = "0.23"
+rapier2d = "0.4"
+concurrent-queue = "1"
+
+[dev-dependencies]
+bevy_wgpu = { git = "https://github.com/bevyengine/bevy.git" }
+bevy_winit = { git = "https://github.com/bevyengine/bevy.git", features = [ "x11" ] }
