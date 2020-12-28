@@ -1,10 +1,11 @@
 use crate::components::{
     Airborne, ButtonEvent, DashCooldown, Direction, GameplayInputs, LookDirection, Movement,
 };
+use bevy::prelude::bevy_main;
 use bevy::app::App;
 use bevy::asset::Assets;
 use bevy::core::Time;
-use bevy::ecs::{Commands, Entity, Query, Res, ResMut, Without};
+use bevy::ecs::{Commands, Entity, IntoSystem, Query, Res, ResMut, Without};
 use bevy::input::{keyboard::KeyCode, Input, system::exit_on_esc_system};
 use bevy::math::Vec2;
 use bevy::render::{
@@ -272,6 +273,7 @@ fn enable_physics_profiling(mut pipeline: ResMut<PhysicsPipeline>) {
     pipeline.counters.enable()
 }
 
+#[bevy_main]
 fn main() {
     App::build()
         .add_resource(WindowDescriptor {
@@ -285,14 +287,14 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin)
         .add_plugin(RapierRenderPlugin)
-        .add_startup_system(startup_system)
-        .add_startup_system(enable_physics_profiling)
-        .add_system(exit_on_esc_system)
-        .add_system(update_dash_cooldown)
-        .add_system(keyboard_input)
-        .add_system(player_movement)
-        .add_system(player_air_movement)
-        .add_system(grounding)
-        .add_system(apex_detection)
+        .add_startup_system(startup_system.system())
+        .add_startup_system(enable_physics_profiling.system())
+        .add_system(exit_on_esc_system.system())
+        .add_system(update_dash_cooldown.system())
+        .add_system(keyboard_input.system())
+        .add_system(player_movement.system())
+        .add_system(player_air_movement.system())
+        .add_system(grounding.system())
+        .add_system(apex_detection.system())
         .run();
 }
