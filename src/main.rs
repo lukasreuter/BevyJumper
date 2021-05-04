@@ -1,41 +1,48 @@
 use crate::components::{
     Airborne, ButtonEvent, DashCooldown, Direction, GameplayInputs, LookDirection, Movement,
 };
-use bevy::prelude::bevy_main;
+
 use bevy::app::App;
 use bevy::asset::Assets;
 use bevy::core::Time;
-use bevy::ecs::{Commands, Entity, IntoSystem, Query, Res, ResMut, Without};
-use bevy::input::{keyboard::KeyCode, Input, system::exit_on_esc_system};
+use bevy::prelude::bevy_main;
+use bevy::prelude::*;
+// use bevy::ecs::{Commands, Entity, IntoSystem, Query, Res, ResMut, Without};
+use bevy::input::{keyboard::KeyCode, system::exit_on_esc_system, Input};
 use bevy::math::Vec2;
 use bevy::render::{
-    color::Color, entity::Camera2dBundle, pass::ClearColor, render_graph::base::Msaa,
+    color::Color,
+    // entity::Camera2dBundle,
+    pass::ClearColor,
+    render_graph::base::Msaa,
 };
 use bevy::sprite::{entity::SpriteBundle, ColorMaterial, Sprite};
 use bevy::window::WindowDescriptor;
 use bevy::DefaultPlugins;
 use bevy_rapier2d::physics::{
-    EventQueue, RapierConfiguration, RapierPhysicsPlugin, RigidBodyHandleComponent,
+    ColliderHandleComponent, EventQueue, RapierConfiguration, RapierPhysicsPlugin,
+    RigidBodyHandleComponent,
 };
 use bevy_rapier2d::rapier::dynamics::{RigidBodyBuilder, RigidBodySet};
 use bevy_rapier2d::rapier::geometry::ColliderBuilder;
+use bevy_rapier2d::rapier::geometry::ContactEvent;
 use bevy_rapier2d::rapier::na::Vector2;
-use bevy_rapier2d::rapier::ncollide::pipeline::ContactEvent;
+// use bevy_rapier2d::rapier::ncollide::pipeline::ContactEvent;
 use bevy_rapier2d::rapier::pipeline::PhysicsPipeline;
 use bevy_rapier2d::render::RapierRenderPlugin;
 
 mod components;
 
 fn update_dash_cooldown(
-    commands: &mut Commands,
+    mut commands: Commands,
     time: Res<Time>,
     mut query: Query<(Entity, &mut DashCooldown)>,
 ) {
     for (entity, mut cooldown) in query.iter_mut() {
-        cooldown.0.tick(time.delta_seconds());
+        cooldown.0.tick(time.delta());
 
         if cooldown.0.just_finished() {
-            commands.remove_one::<DashCooldown>(entity);
+            commands.entity(entity).remove::<DashCooldown>();
         }
     }
 }
@@ -67,17 +74,17 @@ fn keyboard_input(keyboard: Res<Input<KeyCode>>, mut inputs: Query<&mut Gameplay
 }
 
 fn player_movement(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut rigid_bodies: ResMut<RigidBodySet>,
     mut player_info: Query<
-            (
-                Entity,
-                &Movement,
-                &mut Direction,
-                &GameplayInputs,
-                &RigidBodyHandleComponent,
-            ),
-            Without<Airborne>,
+        (
+            Entity,
+            &Movement,
+            &mut Direction,
+            &GameplayInputs,
+            &RigidBodyHandleComponent,
+        ),
+        Without<Airborne>,
     >,
 ) {
     for (entity, movement, mut direction, gameplay_inputs, rigid_body_component) in
@@ -115,13 +122,10 @@ fn player_movement(
                 let lin_vel = *rb.linvel();
                 rb.set_linvel(Vector2::new(lin_vel.x, movement.jump_power), true);
                 // gravity.Scale = movement.RisingGravityScale;
-                commands.insert_one(
-                    entity,
-                    Airborne {
-                        direction: direction.value,
-                        reached_jump_apex: false,
-                    },
-                );
+                commands.entity(entity).insert(Airborne {
+                    direction: direction.value,
+                    reached_jump_apex: false,
+                });
             }
         }
     }
@@ -159,23 +163,20 @@ fn player_air_movement(
 }
 
 fn grounding(
-    commands: &mut Commands,
+    mut commands: Commands,
     events: Res<EventQueue>,
-    players: Query<(Entity, &Airborne, &RigidBodyHandleComponent)>,
+    players: Query<(Entity, &Airborne, &ColliderHandleComponent)>,
 ) {
     while let Ok(contact_event) = events.contact_events.pop() {
         println!("Received contact event: {:?}", contact_event);
 
-        match contact_event {
-            ContactEvent::Started(c1, c2) => {
-                for (entity, _airborne, rigid_body_component) in players.iter() {
-                    if rigid_body_component.handle() == c1 || rigid_body_component.handle() == c2 {
-                        commands.remove_one::<Airborne>(entity);
-                        println!("detected ground");
-                    }
+        if let ContactEvent::Started(c1, c2) = contact_event {
+            for (entity, _airborne, rigid_body_component) in players.iter() {
+                if rigid_body_component.handle() == c1 || rigid_body_component.handle() == c2 {
+                    commands.entity(entity).remove::<Airborne>();
+                    println!("detected ground");
                 }
             }
-            _ => {}
         }
     }
 }
@@ -212,7 +213,7 @@ fn get_air_max_speed(
 }
 
 fn startup_system(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut conf: ResMut<RapierConfiguration>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
@@ -231,18 +232,20 @@ fn startup_system(
     let collider = ColliderBuilder::cuboid(ground_size, 1.2);
 
     // Spawn entity with `Player` struct as a component for access in movement query.
+    // camera
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+
+    // ground
+    commands.spawn().insert(rigid_body).insert(collider);
+
     commands
-        // camera
-        .spawn(Camera2dBundle::default())
-        // ground
-        .spawn((rigid_body, collider))
         // player
-        .spawn(SpriteBundle {
+        .spawn_bundle(SpriteBundle {
             material: materials.add(Color::rgb(0.45, 0.46, 1.0).into()),
             sprite: Sprite::new(Vec2::new(player_size_x, player_size_y)),
             ..Default::default()
         })
-        .with(Movement {
+        .insert(Movement {
             max_speed: (20.0),
             horizontal_acceleration: (5.0),
             jump_power: (10.0),
@@ -250,20 +253,20 @@ fn startup_system(
             air_backward_max_speed: (7.0),
             rising_gravity_scale: (1.0),
             falling_gravity_scale: (3.0),
-            commit_jump_direction: (true),
+            commit_jump_direction: true,
         })
-        .with(GameplayInputs {
+        .insert(GameplayInputs {
             ..Default::default()
         })
-        .with(Direction {
+        .insert(Direction {
             value: LookDirection::Right,
         })
-        .with(
+        .insert(
             RigidBodyBuilder::new_dynamic()
-                .mass(300.0, false)
+                .additional_mass(300.0)
                 .lock_rotations(),
         )
-        .with(ColliderBuilder::cuboid(
+        .insert(ColliderBuilder::cuboid(
             player_size_x / 2.0 / scale,
             player_size_y / 2.0 / scale,
         ));
@@ -276,14 +279,14 @@ fn enable_physics_profiling(mut pipeline: ResMut<PhysicsPipeline>) {
 #[bevy_main]
 fn main() {
     App::build()
-        .add_resource(WindowDescriptor {
+        .insert_resource(WindowDescriptor {
             title: "Bevy Jumper".to_string(),
             width: 1000.0,
             height: 1000.0,
             ..Default::default()
         })
-        .add_resource(ClearColor(Color::rgb(0.19, 0.30, 0.47)))
-        .add_resource(Msaa::default())
+        .insert_resource(ClearColor(Color::rgb(0.19, 0.30, 0.47)))
+        .insert_resource(Msaa::default())
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin)
         .add_plugin(RapierRenderPlugin)
